@@ -1,34 +1,44 @@
-import chalk from "chalk";
-export default class Logging {
-  public static info = (args: any): void => {
-    // eslint-disable-next-line no-console
-    console.log(
-      chalk.blue(`[${new Date().toLocaleString()}][Log]:`),
-      typeof args === "string" ? chalk.blueBright(args) : args,
-    );
-  };
+import { createLogger, format, transports, Logger } from "winston";
+import { Format } from "logform";
 
-  public static warn = (args: any): void => {
-    // eslint-disable-next-line no-console
-    console.log(
-      chalk.yellow(`[${new Date().toLocaleString()}][Info]:`),
-      typeof args === "string" ? chalk.yellowBright(args) : args,
-    );
-  };
+class LoggerService {
+  private logger: Logger;
 
-  public static error = (args: any): void => {
-    // eslint-disable-next-line no-console
-    console.log(
-      chalk.red(`[${new Date().toLocaleString()}][Warn]:`),
-      typeof args === "string" ? chalk.redBright(args) : args,
+  constructor() {
+    const logFormat: Format = format.combine(
+      format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
+      format.printf(info => `[${info.timestamp}] (${info.level}): ${info.message}`),
     );
-  };
 
-  public static log = (args: any): void => {
-    // eslint-disable-next-line no-console
-    console.log(
-      chalk.green(`[${new Date().toLocaleString()}][Error]:`),
-      typeof args === "string" ? chalk.greenBright(args) : args,
-    );
-  };
+    this.logger = createLogger({
+      level: "info",
+      format: logFormat,
+      transports: [
+        new transports.Console({
+          format: format.combine(format.colorize(), logFormat),
+        }),
+        new transports.File({ filename: "logs/error.log", level: "error" }),
+        new transports.File({ filename: "logs/combined.log" }),
+      ],
+      exceptionHandlers: [new transports.File({ filename: "logs/exceptions.log" })],
+    });
+  }
+
+  log(level: string, message: string, metadata?: Record<string, any>): void {
+    this.logger.log({ level, message, ...metadata });
+  }
+
+  info(message: string, metadata?: Record<string, any>): void {
+    this.logger.info(message, metadata);
+  }
+
+  warn(message: string, metadata?: Record<string, any>): void {
+    this.logger.warn(message, metadata);
+  }
+
+  error(message: string, error?: Error): void {
+    this.logger.error(message, { error: error?.stack || error });
+  }
 }
+
+export const logger = new LoggerService();
